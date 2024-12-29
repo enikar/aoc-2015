@@ -88,9 +88,10 @@ solve str = runInterpreter (evalString str)
 -- after importing module use for code in str.
 evalString :: String -> Interpreter String
 evalString str =
-  setImportsQ [("Prelude", Nothing)
-              ,("Data.Bits", Nothing)
-              ,("Data.Word", Nothing)
+  setImportsF [ModuleImport "Prelude" NotQualified NoImportList
+              ,ModuleImport "Data.Bits" NotQualified
+                (ImportList ["shiftR", "shiftL", "complement", "(.|.)", "(.&.)"])
+              ,ModuleImport "Data.Word" NotQualified (ImportList ["Word16"])
               ] >>
   eval str
 
