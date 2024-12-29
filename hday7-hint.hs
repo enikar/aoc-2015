@@ -19,7 +19,7 @@
 -- b RSHIFT 3 -> e   -- e = b `shiftR` 3
 --
 -- But there is an minor issue. Some variables have the same name as
--- Haskell reserved words. Then we need to replace them.
+-- Haskell reserved words. Then we need to rename them.
 -- We build the string to be evaluated by Haskell interpreter directly
 -- from ReadP
 {- HLINT ignore "Eta reduce" -}
