@@ -1,6 +1,7 @@
 -- Aoc 2015 day1
 {- HLINT ignore "Eta reduce" -}
 
+module Main(main) where
 import Data.List (foldl')
 
 readDatas :: IO String

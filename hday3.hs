@@ -1,6 +1,9 @@
 -- AoC 2015, day 2
 
+{-# LANGUAGE ImportQualifiedPost #-}
+
 {- HLINT ignore "Eta reduce" -}
+module Main (main) where
 
 import Data.Set qualified as S
 

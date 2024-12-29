@@ -2,6 +2,7 @@
 
 {- HLINT ignore "Eta reduce" -}
 
+module Main (main) where
 
 import Data.List (sort, foldl')
 import Data.Char (isDigit)
@@ -54,9 +55,6 @@ parseDatas str =
     [(datas, "")] -> datas
     []  -> error "Error: parseDatas: can't parse."
     _   -> error "Error: parseDatas: there are more than one result."
-
--- parseDatas :: String -> [[Int]]
--- parseDatas str = (fst . head) (parse readDatas str)
 
 readDatas :: ReadP [[Int]]
 readDatas = do
