@@ -2,15 +2,15 @@
 -- Quite slow.
 
 -- | The input file consists of one equation per line.
---  Each equation is shaped as:
---  expresion -> var
---   - var is a sequence of 1 or 2 characters.
---   - expresion can be either:
+-- Each equation is shaped as:
+-- expresion -> var
+--  - var is a sequence of 1 or 2 lower-case characters.
+--  - expresion can be either:
 --     - a term (either an integer or a var)
 --     - the unary operator NOT follow by a term
 --     - a binary operator one among "OR", "AND", "RSHIFT", "LSHIFT"
 --       between to term.
---  Examples:
+-- Examples:
 -- 1 AND fi -> fj    -- fj = 1 .&. fi
 -- dy OR ej -> ek    -- ek = dy .|. ej
 -- NOT jy -> jz      -- jz = complement jy
@@ -22,6 +22,7 @@
 -- Haskell reserved words. Then we need to rename them.
 -- We build the string to be evaluated by Haskell interpreter directly
 -- from ReadP
+
 {- HLINT ignore "Eta reduce" -}
 
 module Main(main) where
@@ -37,8 +38,8 @@ import Language.Haskell.Interpreter
 -- module for parsing
 import Data.Char
   (isDigit
-  ,isSpace
   ,isUpper
+  ,isLower
   )
 
 import Control.Monad (void)
@@ -71,12 +72,12 @@ solve str = runInterpreter (evalString str)
                   >>= either errorSolve (pure . read)
   where
     errorSolve err = case err of
-      (WontCompile es)  -> error (errP1 <> ws es)
-      (UnknownError es) -> error (errP1 <> us es)
-      (NotAllowed es)   -> error (errP1 <> ns es)
-      (GhcException es) -> error (errP1 <> gs es)
+      (WontCompile es)  -> error (errSolve <> ws es)
+      (UnknownError es) -> error (errSolve <> us es)
+      (NotAllowed es)   -> error (errSolve <> ns es)
+      (GhcException es) -> error (errSolve <> gs es)
       where
-        errP1 = "Error: solve: "
+        errSolve = "Error: solve: "
         ws es = intercalate "\n" (wh : map unbox es)
         wh = "Won't compile:"
         unbox (GhcError e) = e
@@ -85,18 +86,18 @@ solve str = runInterpreter (evalString str)
         gs es = "Ghc Exception: " <> es
 
 -- | evalString evaluates str into a Haskell Interpreter
--- after importing module use for code in str.
+-- after importing modules use for code in str.
 evalString :: String -> Interpreter String
 evalString str =
   setImportsF [ModuleImport "Prelude" NotQualified NoImportList
               ,ModuleImport "Data.Bits" NotQualified
                 (ImportList ["shiftR", "shiftL", "complement", "(.|.)", "(.&.)"])
               ,ModuleImport "Data.Word" NotQualified (ImportList ["Word16"])
-              ] >>
-  eval str
+              ]
+  >> eval str
 
--- | wireAonB a eqs replace the equation for "b ="
---  to set b to the value of a. That is:
+-- | @wireAonB a eqs@ replaces the equation beginning
+--  with "b =" with "b = a". That is:
 --  "b = 44430;" becomes: "b = 3176;"
 wireAonB :: Word16 -> String -> String
 wireAonB a str = unlines (foldr f [] (lines str))
@@ -119,13 +120,6 @@ newLine = void (char '\n')
 -- | parses one or more spaces
 spaces :: ReadP ()
 spaces = skipMany1 (char ' ')
-
--- | parses one or more character different from space characters,
--- especially different from ' ' and '\n', else ReadP is in
--- trouble and turns anything into rubbish.
--- This is to parse variable names
-notSpace :: ReadP String
-notSpace = munch1 (not . isSpace)
 
 -- | parseDatas turns the parser readDatas into a string
 parseDatas :: String -> String
@@ -182,7 +176,7 @@ readTerm = munch1 isDigit <++ readVar
 -- | readVar parses the var name and renames it if needed
 readVar :: ReadP String
 readVar = do
-  var <- notSpace
+  var <- munch1 isLower
   pure (case var of
           "do" -> "do'"
           "if" -> "if'"
