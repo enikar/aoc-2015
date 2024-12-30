@@ -112,17 +112,18 @@ printSolution part x = putStrLn (part <> ": " <> show x)
 
 -- parsing stuff
 
--- parses a newline
+-- | parses a newline
 newLine :: ReadP ()
 newLine = void (char '\n')
 
--- parses one or more spaces
+-- | parses one or more spaces
 spaces :: ReadP ()
 spaces = skipMany1 (char ' ')
 
--- parses one or more character different from space characters,
--- especially different from ' ' and '\n'. This is to read variable
--- names
+-- | parses one or more character different from space characters,
+-- especially different from ' ' and '\n', else ReadP is in
+-- trouble and turns anything into rubbish.
+-- This is to parse variable names
 notSpace :: ReadP String
 notSpace = munch1 (not . isSpace)
 
@@ -174,11 +175,11 @@ readBinary = do
       errorRead = error ("Error: readBinary: Not a known operator: " <> op)
   pure (t1 <> op' <> t2)
 
--- | readTerm read a positive number or a variable name
+-- | readTerm parses a positive number or a variable name
 readTerm :: ReadP String
 readTerm = munch1 isDigit <++ readVar
 
--- | readVar read the var name and rename it if needed
+-- | readVar parses the var name and renames it if needed
 readVar :: ReadP String
 readVar = do
   var <- notSpace
@@ -187,8 +188,8 @@ readVar = do
           "if" -> "if'"
           "in" -> "in'"
           "of" -> "of'" -- not in the input…
-          "or" -> "or'" -- neither this one
           "id" -> "id'" -- not a reserverd word, but it doesn't hurt
+          "or" -> "or'" -- neither this one
           _    -> var)
 
 -- | buildCircuit strs is equal to the string to be evaluated
