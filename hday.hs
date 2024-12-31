@@ -18,9 +18,6 @@
 -- lx -> a           -- a = lx
 -- b RSHIFT 3 -> e   -- e = b `shiftR` 3
 --
--- But there is an minor issue. Some variables have the same name as
--- Haskell reserved words. Then we need to rename them.
---
 -- We build a list of equations, each equation is a pair (Term, Expr)
 -- Here the Term == (Var string), in other words a left-value.
 -- Expr is either:
@@ -72,18 +69,16 @@ data Op = Or
           |And
           |Rshift
           |Lshift
-           deriving (Show, Eq, Ord)
-
-
+           deriving (Show, Eq)
 
 data Term = Var String
            |Val Word16
-            deriving (Show, Eq, Ord)
+            deriving (Show, Eq)
 
 data Expr = AppNot Term
             |AppOp Op Term Term
             |AppSet Term
-             deriving (Show, Eq, Ord)
+             deriving (Show, Eq)
 
 type Circuit = [(Term, Expr)]
 
@@ -96,8 +91,13 @@ main = do
   printSolution "Part2" (solve eqs')
 
 solve :: Circuit -> Word16
-solve eqs = takeUntil end (iterate newCircuit eqs)
+solve eqs = getResult (iterate newCircuit eqs)
   where
+    getResult :: [Circuit] -> Word16
+    getResult (x:xs) = fromMaybe (getResult xs) (end x)
+    getResult [] = error "Error: solve no solution"
+
+    end :: Circuit -> Maybe Word16
     end eqs' = foldr h Nothing eqs'
 
     h (Var "a", AppSet (Val n)) _   = Just n
@@ -115,12 +115,8 @@ findSubstition eqs = foldr g [] eqs
     g (var, AppSet (Val n)) acc  = (var, n) : acc
     g _                       acc = acc
 
-takeUntil :: (Circuit -> Maybe Word16) -> [Circuit] -> Word16
-takeUntil p (x:xs) = fromMaybe (takeUntil p xs) (p x)
-takeUntil _ _ = error "Error: takeUntil"
-
 substitute :: Term -> Word16 -> Circuit -> Circuit
-substitute (Val _) _    = error "Error: substitute cannot operate on a value"
+substitute (Val _) _ = error "Error: substitute cannot operate on a value"
 substitute (Var x) n = foldr f []
   where
     f (Var y, _)                acc | x == y = acc
@@ -143,6 +139,10 @@ applyOp op x y = AppSet . Val  $ case op of
   Rshift -> x `shiftR` fromIntegral y
   Lshift -> x `shiftL` fromIntegral y
 
+-- | @wireAonB a eqs@ replaces the equation beginning
+-- with "b =" with "b = a". That is:
+-- "b = 44430;" becomes: "b = 3176;"
+-- The other equations remain unchanged.
 wireAonB :: Word16 -> Circuit -> Circuit
 wireAonB a eqs = foldr f [] eqs
   where
@@ -218,19 +218,9 @@ readTerm = readNumber <++ readVar
 readNumber :: ReadP Term
 readNumber = Val . read <$> munch1 isDigit
 
--- | readVar parses the var name and renames it if needed
+-- | readVar parses the var name
 readVar :: ReadP Term
-readVar = do
-  var <- munch1 isLower
-  let var' = (case var of
-                "do" -> "do'"
-                "if" -> "if'"
-                "in" -> "in'"
-                "of" -> "of'" -- not in the input…
-                "id" -> "id'" -- not a reserverd word, but it doesn't hurt
-                "or" -> "or'" -- neither this one
-                _    -> var)
-  pure (Var var')
+readVar = Var <$> munch1 isLower
 
 -- | operator mapping
 ops :: [(String, Op)]
