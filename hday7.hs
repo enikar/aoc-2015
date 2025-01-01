@@ -1,4 +1,7 @@
 -- AoC 2025, day 7, using direct reduction
+-- It is 60 times faster than using the Haskell interpreter as
+-- in hday7-hint.hs
+-- There are 339 equations, we loop 208 times to get the solution.
 
 -- | The input file consists of one equation per line.
 -- Each equation is shaped as:
@@ -87,34 +90,48 @@ main = do
   eqs <- parseDatas <$> readFile "day7.txt"
   let n = solve eqs
   printSolution "Part1" n
-  let eqs' = wireAonB n eqs
-  printSolution "Part2" (solve eqs')
+  printSolution "Part2" (solve (wireAonB n eqs))
 
 solve :: Circuit -> Word16
 solve eqs = getResult (iterate newCircuit eqs)
   where
+    -- getResult is a recursive function to extract
+    -- the result from the list of Circuit generate by
+    -- iterate. It uses fromMaybe to exit or loop.
     getResult :: [Circuit] -> Word16
     getResult (x:xs) = fromMaybe (getResult xs) (end x)
-    getResult [] = error "Error: solve no solution"
+    getResult [] = error "Error: solve no solution" -- not reach
 
+    -- Searches the equation (Var "a", AppSet (Val n)),
+    -- if found returns (Just n) else returns Nothing.
     end :: Circuit -> Maybe Word16
+    end [] = error "Error: solve: no solution"
     end eqs' = foldr h Nothing eqs'
 
     h (Var "a", AppSet (Val n)) _   = Just n
     h _                         acc = acc
 
+-- | Computes the transiton for the state of Circuit
+-- to the next state.
 newCircuit :: Circuit -> Circuit
 newCircuit eqs = foldr f eqs (findSubstition eqs)
   where
     f :: (Term, Word16) -> Circuit -> Circuit
     f (var, n) acc = substitute var n acc
 
+-- | Finds all Expr equal to AppSet for which
+-- the value of the left (Var x) is then knwon.
 findSubstition :: Circuit -> [(Term, Word16)]
 findSubstition eqs = foldr g [] eqs
   where
     g (var, AppSet (Val n)) acc  = (var, n) : acc
     g _                       acc = acc
 
+-- | @substitute var n eqs@ subtstitutes var by the value n
+-- in all equations eqs. Tries to reduce all Expr to (AppSet (val x))
+-- applying AppNot and AppOp op in Expr when var is equal to a Term.
+-- Removes the Term equal to (var, _).
+-- Then that reduces the length of Circuit by one.
 substitute :: Term -> Word16 -> Circuit -> Circuit
 substitute (Val _) _ = error "Error: substitute cannot operate on a value"
 substitute (Var x) n = foldr f []
@@ -126,18 +143,23 @@ substitute (Var x) n = foldr f []
     f (var, AppOp op t (Var y)) acc | y == x = (var, reduce op t (Val n)) : acc
     f eq                        acc          = eq:acc
 
+-- | Tries to reduce op t1 t2 to the Expr (AppSet (Val x)) when
+-- possible.
 reduce :: Op -> Term -> Term -> Expr
 reduce op t1 t2 = case (t1, t2) of
   (Var v, val) -> AppOp op (Var v) val
   (val, Var v) -> AppOp op val (Var v)
   (Val x, Val y) -> applyOp op x y
+{-# INLINE reduce #-}
 
+-- | Applies a binary operator.
 applyOp :: Op -> Word16 -> Word16 -> Expr
 applyOp op x y = AppSet . Val  $ case op of
   Or -> x .|. y
   And -> x .&. y
   Rshift -> x `shiftR` fromIntegral y
   Lshift -> x `shiftL` fromIntegral y
+{-# INLINE applyOp #-}
 
 -- | @wireAonB a eqs@ replaces the equation beginning
 -- with "b =" with "b = a". That is:
