@@ -37,11 +37,7 @@
 
 module Main(main) where
 
-import Data.Semigroup
-  (Endo(..)
-  ,stimes
-  )
-
+import System.IO (readFile')
 import Data.Word (Word16)
 import Data.Maybe (fromMaybe)
 import Data.Bits
@@ -94,57 +90,77 @@ type Circuit = [(Term, Expr)]
 
 main :: IO ()
 main = do
-  eqs <- parseDatas <$> readFile "day7.txt"
+  eqs <- parseDatas <$> readFile' "day7.txt"
   let n = solve eqs
   printSolution "Part1" n
   printSolution "Part2" (solve (wireAonB n eqs))
 
 -- | solve search for the value of "a".
 -- Here getResult extract this value when found.
--- The function getResult is somewhat tricky.
+-- The first version below used a tricky function getResult.
 --
 -- But there is another way to write it. We filter the result
--- of iterate with (filter (not . null)) and take the last
+-- of iterate with (takeWhile (not . null)) and take the last
 -- elment of this list. Then we'll get the last non empty
 -- Circuit which consists of 2 equations from our input.
--- But for now I can't get it to work properly.
+-- It's more haskellish and as fast than our tricky one.
 
+-- solve :: Circuit -> Word16
+-- solve eqs = getResult (iterate newCircuit eqs)
+--   where
+--     -- getResult is a recursive function to extract
+--     -- the result from the list of Circuit generate by
+--     -- iterate. It uses fromMaybe to exit or loop.
+--     -- Since iterate generates an infinte list and
+--     -- newCircuit reduces the length of Circuit,
+--     -- at some point the Circuit are [] and there is
+--     -- no solution.
+--     getResult :: [Circuit] -> Word16
+--     getResult ([]:_) = error "Error: solve: no solution"
+--     getResult (x:xs) = fromMaybe (getResult xs) (searchA x)
+--     getResult []     = error "Error: solve no solution" -- not reach
+
+--     -- Searches the equation (Var "a", AppSet (Val n)),
+--     -- if found returns (Just n) else returns Nothing.
+--     searchA :: Circuit -> Maybe Word16
+-- --    searchA [] = error "Error: solve: no solution"
+--     searchA eqs' = foldr h Nothing eqs'
+
+--     h (Var "a", AppSet (Val n)) _   = Just n
+--     h _                         acc = acc
 solve :: Circuit -> Word16
-solve eqs = getResult (iterate newCircuit eqs)
+solve = getResult
+        . last -- well, we would use a total version of last…
+        . takeWhile (not . null)
+        . iterate newCircuit
   where
-    -- getResult is a recursive function to extract
-    -- the result from the list of Circuit generate by
-    -- iterate. It uses fromMaybe to exit or loop.
-    -- Since iterate generates an infinte list and
-    -- newCircuit reduces the length of Circuit,
-    -- at some point the Circuit are [] and there is
-    -- no solution.
-    getResult :: [Circuit] -> Word16
-    getResult ([]:_) = error "Error: solve: no solution"
-    getResult (x:xs) = fromMaybe (getResult xs) (end x)
-    getResult []     = error "Error: solve no solution" -- not reach
+    getResult [] = errorSolve
+    getResult ls = fromMaybe errorSolve (searchA ls)
 
-    -- Searches the equation (Var "a", AppSet (Val n)),
-    -- if found returns (Just n) else returns Nothing.
-    end :: Circuit -> Maybe Word16
-    end [] = error "Error: solve: no solution"
-    end eqs' = foldr h Nothing eqs'
+    errorSolve = error "Error: solve: no solution"
 
+-- | Searches the equation (Var "a", AppSet (Val n)),
+-- if found returns (Just n) else returns Nothing.
+searchA :: Circuit -> Maybe Word16
+searchA = foldr h Nothing
+  where
     h (Var "a", AppSet (Val n)) _   = Just n
     h _                         acc = acc
 
 -- | Computes the transiton for the state of Circuit
 -- to the next state.
 newCircuit :: Circuit -> Circuit
+newCircuit [] = []
 newCircuit eqs = foldr f eqs (findSubstition eqs)
   where
     f :: (Term, Word16) -> Circuit -> Circuit
-    f (var, n) acc = substitute var n acc
+    -- f (var, n) acc = substitute var n acc
+    f (var, n) = substitute var n
 
 -- | Finds all Expr equal to AppSet for which
 -- the value of the left (Var x) is then knwon.
 findSubstition :: Circuit -> [(Term, Word16)]
-findSubstition eqs = foldr g [] eqs
+findSubstition = foldr g []
   where
     g (var, AppSet (Val n)) acc  = (var, n) : acc
     g _                       acc = acc
