@@ -21,6 +21,8 @@
 -- lx -> a           -- a = lx
 -- b RSHIFT 3 -> e   -- e = b `shiftR` 3
 --
+-- The goal is to get the final value of the variable "a".
+--
 -- We build a list of equations, each equation is a pair (Term, Expr)
 -- Here the Term == (Var string), in other words a left-value.
 -- Expr is either:
@@ -34,6 +36,11 @@
 {- HLINT ignore "Eta reduce" -}
 
 module Main(main) where
+
+import Data.Semigroup
+  (Endo(..)
+  ,stimes
+  )
 
 import Data.Word (Word16)
 import Data.Maybe (fromMaybe)
@@ -92,15 +99,30 @@ main = do
   printSolution "Part1" n
   printSolution "Part2" (solve (wireAonB n eqs))
 
+-- | solve search for the value of "a".
+-- Here getResult extract this value when found.
+-- The function getResult is somewhat tricky.
+--
+-- But there is another way to write it. We filter the result
+-- of iterate with (filter (not . null)) and take the last
+-- elment of this list. Then we'll get the last non empty
+-- Circuit which consists of 2 equations from our input.
+-- But for now I can't get it to work properly.
+
 solve :: Circuit -> Word16
 solve eqs = getResult (iterate newCircuit eqs)
   where
     -- getResult is a recursive function to extract
     -- the result from the list of Circuit generate by
     -- iterate. It uses fromMaybe to exit or loop.
+    -- Since iterate generates an infinte list and
+    -- newCircuit reduces the length of Circuit,
+    -- at some point the Circuit are [] and there is
+    -- no solution.
     getResult :: [Circuit] -> Word16
+    getResult ([]:_) = error "Error: solve: no solution"
     getResult (x:xs) = fromMaybe (getResult xs) (end x)
-    getResult [] = error "Error: solve no solution" -- not reach
+    getResult []     = error "Error: solve no solution" -- not reach
 
     -- Searches the equation (Var "a", AppSet (Val n)),
     -- if found returns (Just n) else returns Nothing.
